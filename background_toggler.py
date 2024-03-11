@@ -1,6 +1,6 @@
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QIcon, QColor, QPixmap
-from qgis.PyQt.QtWidgets import QAction, QPushButton, QColorDialog
+from qgis.PyQt.QtWidgets import QAction, QPushButton
 from qgis.utils import iface
 
 import os.path
@@ -24,16 +24,8 @@ class BackgroundToggler:
         # Declare instance attributes
         self.actions = []
         self.menu = self.tr(u'&Background Toggler')
-        self.colors = []  # Store colors
+        self.colors = [QColor("black"), QColor("white"), QColor("grey")]  # Store colors
         self.current_color_index = 0
-
-        # Settings keys
-        self.settings = QSettings()
-        self.settings.beginGroup('BackgroundToggler')
-        self.settings_key = 'colors'
-
-        # Load colors from settings or set defaults
-        self.load_colors()
 
         # Create toolbar
         self.toolbar = self.iface.addToolBar(u'Background Toggler')
@@ -99,17 +91,6 @@ class BackgroundToggler:
         pixmap.fill(color)
         return QIcon(pixmap)
 
-    def load_colors(self):
-        """Load colors from settings or set defaults."""
-        saved_colors = self.settings.value(self.settings_key, None)
-        if saved_colors is not None:
-            self.colors = [QColor(color) for color in saved_colors]
-        else:
-            # Set default colors if not saved
-            self.colors = [QColor("black"), QColor("white"), QColor("grey")]
-        # Ensure current_color_index is within bounds
-        self.current_color_index = min(self.current_color_index, len(self.colors) - 1)
-
     def toggle_color(self):
         """Toggle the background color when the button is clicked."""
         self.current_color_index = (self.current_color_index + 1) % len(self.colors)
@@ -125,8 +106,6 @@ class BackgroundToggler:
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
-        self.save_colors()  # Save colors before unloading
-
         for action in self.actions:
             self.iface.removePluginMenu(self.tr(u'&Background Toggler'), action)
             self.iface.removeToolBarIcon(action)
@@ -139,4 +118,4 @@ class BackgroundToggler:
 
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
-        pass  # No need for initGui since we removed the menu and toolbar logic
+        pass
