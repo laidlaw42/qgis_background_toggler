@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/background_toggler" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
