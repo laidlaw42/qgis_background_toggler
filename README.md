@@ -21,7 +21,7 @@ This QGIS plugin allows users to toggle the background colour of the map canvas 
 
 ## Usage:
 
-1. Download a zip.
+1. Download a zip of this repo.
 2. In QGIS, go to Plugins > Manage and Install Plugins... > Install from zip
 3. Activate the plugin from the Plugins menu.
 4. A toolbar button labeled "Background Toggler" will appear.
@@ -32,3 +32,6 @@ This QGIS plugin allows users to toggle the background colour of the map canvas 
 - QGIS 3.x
 - PyQt5
 
+## License:
+
+- GNU General Public License version 2 or later
