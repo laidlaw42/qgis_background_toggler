@@ -1,4 +1,4 @@
-from qgis.PyQt.QtCore import QCoreApplication, QSettings
+from qgis.PyQt.QtCore import QCoreApplication, QSettings, Qt
 from qgis.PyQt.QtGui import QIcon, QColor, QPixmap
 from qgis.PyQt.QtWidgets import QAction, QPushButton, QColorDialog
 from qgis.utils import iface
@@ -15,109 +15,83 @@ class BackgroundToggler:
         self.actions = []
         self.menu = self.tr(u'&Background Toggler')
 
-        # Load settings or use defaults
+        # Load settings or defaults
         saved_primary = QSettings().value("BackgroundToggler/primary_color", "#212830")
         saved_secondary = QSettings().value("BackgroundToggler/secondary_color", "#ffffff")
         self.primary_color = QColor(saved_primary)
         self.secondary_color = QColor(saved_secondary)
-        self.use_primary = QSettings().value("BackgroundToggler/use_primary", "true") == "true"
 
-        # Setup toolbar
+        # Load last-used color
+        self.current_color_name = QSettings().value("BackgroundToggler/last_used", "primary")
+
         self.toolbar = self.iface.addToolBar(u'Background Toggler')
         self.toolbar.setObjectName(u'Background Toggler')
 
-        self.add_primary_button()
-        self.add_secondary_button()
-        self.add_toggle_button()
+        self.add_color_button("primary")
+        self.add_color_button("secondary")
+
         self.set_canvas_color()
 
     def tr(self, message):
         return QCoreApplication.translate('BackgroundToggler', message)
 
-    def add_action(self, icon_path, text, callback, enabled_flag=True, add_to_menu=True, add_to_toolbar=True,
-                   status_tip=None, whats_this=None, parent=None):
-        icon = QIcon(icon_path)
-        action = QAction(icon, text, parent)
-        action.triggered.connect(callback)
-        action.setEnabled(enabled_flag)
-        if status_tip:
-            action.setStatusTip(status_tip)
-        if whats_this:
-            action.setWhatsThis(whats_this)
-        if add_to_toolbar:
-            self.toolbar.addAction(action)
-        if add_to_menu:
-            self.iface.addPluginToMenu(self.menu, action)
-        self.actions.append(action)
-        return action
+    def add_color_button(self, label):
+        """Add a color button that handles left/right click."""
+        button = QPushButton()
+        button.setObjectName(label)
+        button.setToolTip(f"{label.capitalize()} background color")
 
-    def add_primary_button(self):
-        self.primary_button = QPushButton()
-        self.primary_button.setToolTip("Pick primary background color")
-        self.primary_button.clicked.connect(self.pick_primary_color)
-        self.update_primary_icon()
-        self.toolbar.addWidget(self.primary_button)
+        if label == "primary":
+            self.primary_button = button
+            self.update_button_icon(button, self.primary_color)
+        else:
+            self.secondary_button = button
+            self.update_button_icon(button, self.secondary_color)
 
-    def add_secondary_button(self):
-        self.secondary_button = QPushButton()
-        self.secondary_button.setToolTip("Pick secondary background color")
-        self.secondary_button.clicked.connect(self.pick_secondary_color)
-        self.update_secondary_icon()
-        self.toolbar.addWidget(self.secondary_button)
+        button.setContextMenuPolicy(Qt.CustomContextMenu)
+        button.customContextMenuRequested.connect(lambda pos, b=button: self.open_color_dialog(b))
+        button.clicked.connect(lambda _, b=button: self.set_active_color(b.objectName()))
 
-    def add_toggle_button(self):
-        self.toggle_button = QPushButton()
-        self.toggle_button.setToolTip("Toggle background color")
-        self.toggle_button.clicked.connect(self.toggle_background)
-        self.update_toggle_icon()
-        self.toolbar.addWidget(self.toggle_button)
+        self.toolbar.addWidget(button)
 
-    def pick_primary_color(self):
-        selected = QColorDialog.getColor(self.primary_color, iface.mainWindow(), "Select Primary Background Color")
-        if selected.isValid():
-            self.primary_color = selected
-            self.use_primary = True
-            self.save_settings()
-            self.set_canvas_color()
-            self.update_primary_icon()
-            self.update_toggle_icon()
-
-    def pick_secondary_color(self):
-        selected = QColorDialog.getColor(self.secondary_color, iface.mainWindow(), "Select Secondary Background Color")
-        if selected.isValid():
-            self.secondary_color = selected
-            self.use_primary = False
-            self.save_settings()
-            self.set_canvas_color()
-            self.update_secondary_icon()
-            self.update_toggle_icon()
-
-    def toggle_background(self):
-        self.use_primary = not self.use_primary
-        self.save_settings()
-        self.set_canvas_color()
-        self.update_toggle_icon()
-
-    def update_primary_icon(self):
-        self.primary_button.setIcon(self.make_color_icon(self.primary_color))
-        self.primary_button.setToolTip(f"Primary: {self.primary_color.name()}")
-
-    def update_secondary_icon(self):
-        self.secondary_button.setIcon(self.make_color_icon(self.secondary_color))
-        self.secondary_button.setToolTip(f"Secondary: {self.secondary_color.name()}")
-
-    def update_toggle_icon(self):
-        alt_color = self.secondary_color if self.use_primary else self.primary_color
-        self.toggle_button.setIcon(self.make_color_icon(alt_color))
-        self.toggle_button.setToolTip(f"Switch to: {alt_color.name()}")
+    def update_button_icon(self, button, color):
+        """Update a button to show a color swatch icon."""
+        icon = self.make_color_icon(color)
+        button.setIcon(icon)
+        button.setToolTip(f"{button.objectName().capitalize()}: {color.name()}")
 
     def make_color_icon(self, color):
         pixmap = QPixmap(40, 20)
         pixmap.fill(color)
         return QIcon(pixmap)
 
+    def open_color_dialog(self, button):
+        """Handle right-click — open color picker and update button."""
+        name = button.objectName()
+        current = self.primary_color if name == "primary" else self.secondary_color
+        selected = QColorDialog.getColor(current, iface.mainWindow(), f"Select {name.capitalize()} Color")
+
+        if selected.isValid():
+            if name == "primary":
+                self.primary_color = selected
+                self.update_button_icon(button, self.primary_color)
+            else:
+                self.secondary_color = selected
+                self.update_button_icon(button, self.secondary_color)
+
+            self.save_settings()
+            if name == self.current_color_name:
+                self.set_canvas_color()  # live update if it's the current one
+
+    def set_active_color(self, name):
+        """Handle left-click — set canvas background to selected button’s color."""
+        self.current_color_name = name
+        self.set_canvas_color()
+        self.save_settings()
+
     def set_canvas_color(self):
-        color = self.primary_color if self.use_primary else self.secondary_color
+        """Apply current active color to map canvas."""
+        color = self.primary_color if self.current_color_name == "primary" else self.secondary_color
         canvas = self.iface.mapCanvas()
         canvas.setCanvasColor(color)
         canvas.refresh()
@@ -125,7 +99,7 @@ class BackgroundToggler:
     def save_settings(self):
         QSettings().setValue("BackgroundToggler/primary_color", self.primary_color.name())
         QSettings().setValue("BackgroundToggler/secondary_color", self.secondary_color.name())
-        QSettings().setValue("BackgroundToggler/use_primary", str(self.use_primary).lower())
+        QSettings().setValue("BackgroundToggler/last_used", self.current_color_name)
 
     def unload(self):
         for action in self.actions:
