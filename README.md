@@ -1,4 +1,4 @@
-# Background Toggler Plugin for QGIS
+# Background Colour Selector for QGIS
 
 ## Description:
 
